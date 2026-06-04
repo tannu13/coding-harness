@@ -58,8 +58,6 @@ export class Harness {
           }
         }
 
-        console.log("toolResponseParts", toolResponseParts);
-
         this.agent.addUserRole(toolResponseParts);
       } else {
         // no tool calls

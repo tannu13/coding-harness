@@ -7,13 +7,15 @@
     "dev": "bun --watch run src/index.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/commander": "^2.12.5"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
+    "commander": "^15.0.0",
     "zod": "^4.4.3"
   }
 }
