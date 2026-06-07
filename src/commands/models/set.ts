@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { Command } from "commander";
 import z from "zod";
 
@@ -21,36 +20,27 @@ export const setModelsCommand = new Command("set")
   )
   .action(async (options) => {
     const modelName = options.model;
-
-    let providerFileContent = "{}";
-    await fs.readFile(MODEL_FILE_PATH, async (err, data) => {
-      if (err) {
-        await fs.writeFile(MODEL_FILE_PATH, "{}", (err) => {
-          console.error(err);
-        });
-      } else {
-        providerFileContent = data.toString();
-      }
-      if (!providerFileContent) {
-        providerFileContent = "{}";
-      }
-      const parsedContent = JSON.parse(providerFileContent);
-      const parsed = ModelsContentSchema.safeParse(parsedContent);
-
-      if (!parsed.success) {
-        console.error(`Invalid provider file @ ${MODEL_FILE_PATH}`);
-        console.error(parsed.error);
-        process.exit(1);
-      }
-
-      parsed.data["default"] = modelName;
-
-      await fs.writeFile(
-        MODEL_FILE_PATH,
-        JSON.stringify(parsed.data),
-        (err) => {
-          console.error(err);
-        },
+    if (!modelName) {
+      console.error(
+        `Model name is required for this command. Set it with -m or --model option`,
       );
-    });
+      process.exit(1);
+    }
+    const modelFile = Bun.file(MODEL_FILE_PATH);
+    if (!(await modelFile.exists())) {
+      await modelFile.write("{}");
+    }
+
+    const data = await modelFile.json();
+    const parsed = ModelsContentSchema.safeParse(data);
+
+    if (!parsed.success) {
+      console.error(`Invalid provider file @ ${MODEL_FILE_PATH}`);
+      console.error(parsed.error);
+      process.exit(1);
+    }
+
+    parsed.data["default"] = modelName;
+
+    await modelFile.write(JSON.stringify(parsed.data));
   });

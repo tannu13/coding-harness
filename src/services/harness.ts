@@ -19,6 +19,8 @@ export class Harness {
     let processing = true;
     while (processing && iteration < this.maxIterations) {
       iteration++;
+
+      // call pre hooks
       const response = await this.agent.runStep(this.toolRegistry);
 
       if (response.functionCalls) {
@@ -53,6 +55,8 @@ export class Harness {
                 response: result,
               },
             });
+
+            // call post hooks
           } catch (err) {
             console.error(`Runtime error executing ${tool.name}`, err);
           }

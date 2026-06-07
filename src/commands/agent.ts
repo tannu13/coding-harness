@@ -5,6 +5,11 @@ import { Agent } from "../services/agent";
 import { Harness } from "../services/harness";
 import { MODEL_FILE_PATH, ModelsContentSchema } from "./models/set";
 import env from "../env";
+import {
+  PROVIDER_FILE_PATH,
+  ProviderContentSchema,
+  type TValidProviderNames,
+} from "./providers/login";
 
 export const agentCommand = new Command("agent")
   .description("Runs the agent")
@@ -12,55 +17,84 @@ export const agentCommand = new Command("agent")
   .action(async (options) => {
     console.log("User prompt is ..." + options.prompt);
 
-    let modelFileContent = "{}";
-    await fs.readFile(MODEL_FILE_PATH, async (err, data) => {
-      if (err) {
-        await fs.writeFile(MODEL_FILE_PATH, "{}", (err) => {
-          console.error(err);
-        });
-      } else {
-        modelFileContent = data.toString();
+    if (!options.prompt) {
+      console.error(
+        "Please provide a provide for the agent using -p or --prompt flag",
+      );
+      process.exit(1);
+    }
+
+    const modelFile = Bun.file(MODEL_FILE_PATH);
+    if (!(await modelFile.exists())) {
+      await modelFile.write("{}");
+    }
+
+    const data = await modelFile.json();
+    const parsed = ModelsContentSchema.safeParse(data);
+    if (!parsed.success) {
+      console.error(`Invalid provider file @ ${MODEL_FILE_PATH}`);
+      console.error(parsed.error);
+      process.exit(1);
+    }
+
+    if (!parsed.data["default"]) {
+      console.error("There is no default model set.");
+      console.error("Set it with `models set -m <MODEL_NAME>`");
+      console.error(parsed.error);
+      process.exit(1);
+    }
+
+    const model = parsed.data["default"];
+    let selectedEnterprise: TValidProviderNames | undefined;
+    for (const [enterpriseKey, models] of Object.entries(parsed.data)) {
+      if (enterpriseKey === "default") continue;
+      if (models.includes(model)) {
+        selectedEnterprise = enterpriseKey as TValidProviderNames;
+        break;
       }
-      if (!modelFileContent) {
-        modelFileContent = "{}";
-      }
-      const parsedContent = JSON.parse(modelFileContent);
-      const parsed = ModelsContentSchema.safeParse(parsedContent);
+    }
 
-      if (!parsed.success) {
-        console.error(`Invalid provider file @ ${MODEL_FILE_PATH}`);
-        console.error(parsed.error);
-        process.exit(1);
-      }
+    if (!selectedEnterprise) {
+      console.error(
+        "There's no valid enterprise selected for the default model.",
+      );
+      process.exit(1);
+    }
 
-      console.log("parsed.data", parsed.data["default"]);
-      let model = "gemini-2.5-flash";
-      if (parsed.data["default"]) {
-        model = parsed.data["default"];
-      }
+    const providerFile = Bun.file(PROVIDER_FILE_PATH);
+    if (!(await providerFile.exists())) {
+      console.error(
+        "There aren't any providers setup. Use `providers login` command",
+      );
+      process.exit(1);
+    }
+    const providerData = await providerFile.json();
+    const parsedProviders = ProviderContentSchema.safeParse(providerData);
 
-      let validEnterprise = "";
-      for (const [enterpriseKey, models] of Object.entries(parsed.data)) {
-        if (enterpriseKey === "default") continue;
+    if (!parsedProviders.success) {
+      console.error(`Invalid provider file @ ${PROVIDER_FILE_PATH}`);
+      console.error(parsedProviders.error);
+      process.exit(1);
+    }
 
-        if (models.includes(model)) {
-          validEnterprise = enterpriseKey;
-        }
-      }
+    if (!parsedProviders.data[selectedEnterprise]?.apiKey) {
+      console.error(`API KEY not set the default model's provider`);
+      process.exit(1);
+    }
+    const { apiKey } = parsedProviders.data[selectedEnterprise]!;
 
-      // td:: get api key for this validEnterprise, if empty throw
+    const tools = new ToolRegistry();
+    tools.register(readFileTool).register(writeFileTool);
 
-      const tools = new ToolRegistry();
-      tools.register(readFileTool).register(writeFileTool);
+    // const userPrompt =
+    //   "Read './rainbow.txt' and write a summary to rainbow-summary.txt in 50 chars.";
 
-      // const userPrompt =
-      //   "Read './rainbow.txt' and write a summary to rainbow-summary.txt in 50 chars.";
+    // td:: the api key should be the one what user gave not the one from env
 
-      // td:: the api key should be the one what user gave not the one from env
+    console.log(apiKey, model);
 
-      const agent = new Agent(env.GEMINI_API_KEY, options.prompt, model);
+    const agent = new Agent(apiKey, options.prompt, model);
 
-      const harness = new Harness(agent, tools);
-      harness.executeTask();
-    });
+    const harness = new Harness(agent, tools);
+    await harness.executeTask();
   });

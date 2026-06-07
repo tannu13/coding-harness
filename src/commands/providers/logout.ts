@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import { Command } from "commander";
 import {
   PROVIDER_FILE_PATH,
@@ -24,35 +23,20 @@ export const logoutCommand = new Command("logout")
       process.exit(1);
     }
 
-    let providerFileContent = "{}";
-    await fs.readFile(PROVIDER_FILE_PATH, async (err, data) => {
-      if (err) {
-        await fs.writeFile(PROVIDER_FILE_PATH, "{}", (err) => {
-          console.error(err);
-        });
-      } else {
-        providerFileContent = data.toString();
-      }
-      if (!providerFileContent) {
-        providerFileContent = "{}";
-      }
-      const parsedContent = JSON.parse(providerFileContent);
-      const parsed = ProviderContentSchema.safeParse(parsedContent);
+    const providerFile = Bun.file(PROVIDER_FILE_PATH);
+    if (!(await providerFile.exists())) {
+      await providerFile.write("{}");
+    }
 
-      if (!parsed.success) {
-        console.error(`Invalid provider file @ ${PROVIDER_FILE_PATH}`);
-        console.error(parsed.error);
-        process.exit(1);
-      }
+    const data = await providerFile.json();
+    const parsed = ProviderContentSchema.safeParse(data);
 
-      delete parsed.data[parsedProviderName.data];
+    if (!parsed.success) {
+      console.error(`Invalid provider file @ ${PROVIDER_FILE_PATH}`);
+      console.error(parsed.error);
+      process.exit(1);
+    }
 
-      const res = await fs.writeFile(
-        PROVIDER_FILE_PATH,
-        JSON.stringify(parsed.data),
-        (err) => {
-          console.error(err);
-        },
-      );
-    });
+    delete parsed.data[parsedProviderName.data];
+    await providerFile.write(JSON.stringify(parsed));
   });
