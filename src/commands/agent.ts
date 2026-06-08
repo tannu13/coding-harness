@@ -10,6 +10,19 @@ import {
   ProviderContentSchema,
   type TValidProviderNames,
 } from "./providers/login";
+import {
+  HooksRegistry,
+  type Hook,
+  type HookContextMap,
+} from "../services/hooks";
+
+class ValidateToolCallHook implements Hook<"pre-tool-call"> {
+  name: string = "validate-tool-call";
+  process(context: HookContextMap["pre-tool-call"]) {
+    console.log(context);
+    context.reject("Rejecting tool calling as system is experience outage.");
+  }
+}
 
 export const agentCommand = new Command("agent")
   .description("Runs the agent")
@@ -95,6 +108,10 @@ export const agentCommand = new Command("agent")
 
     const agent = new Agent(apiKey, options.prompt, model);
 
-    const harness = new Harness(agent, tools);
+    const hooks = new HooksRegistry();
+    const validateHook = new ValidateToolCallHook();
+    hooks.register("pre-tool-call", validateHook);
+
+    const harness = new Harness(agent, tools, hooks);
     await harness.executeTask();
   });

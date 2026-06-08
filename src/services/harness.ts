@@ -1,17 +1,25 @@
 import type { Agent } from "./agent";
+import type { HooksRegistry, PreToolCallContext } from "./hooks";
 import type { ToolRegistry } from "./tools";
 
 export class Harness {
   private agent: Agent;
   private toolRegistry: ToolRegistry;
   private maxIterations;
+  private hooksRegistry: HooksRegistry;
 
   status = "pending";
 
-  constructor(agent: Agent, toolRegistry: ToolRegistry, maxIterations = 5) {
+  constructor(
+    agent: Agent,
+    toolRegistry: ToolRegistry,
+    hooksRegistry: HooksRegistry,
+    maxIterations = 5,
+  ) {
     this.agent = agent;
     this.toolRegistry = toolRegistry;
     this.maxIterations = maxIterations;
+    this.hooksRegistry = hooksRegistry;
   }
 
   async executeTask() {
@@ -44,6 +52,40 @@ export class Harness {
               `Validation failed for tool '${tool.name}'. Errors:`,
               parseResult.error.flatten(),
             );
+            continue;
+          }
+
+          let isApproved = true;
+          const rejectionReasons: string[] = [];
+          const contextPayload: PreToolCallContext = {
+            history: this.agent.getHistory(),
+            toolName: tool.name,
+            args: parseResult.data as Record<string, unknown>,
+            approve: () => {
+              if (rejectionReasons.length > 0) {
+                isApproved = false;
+              }
+            },
+            reject: (reason) => {
+              isApproved = false;
+              rejectionReasons.push(reason);
+            },
+          };
+
+          await this.hooksRegistry.executeHooks(
+            "pre-tool-call",
+            contextPayload,
+          );
+          if (!isApproved || rejectionReasons.length > 0) {
+            toolResponseParts.push({
+              functionResponse: {
+                name: tool.name,
+                response: {
+                  status: "error",
+                  error: `Tool call to ${tool.name} was rejected by guardrail hooks due to following reasons: ${rejectionReasons.join(", ")}`,
+                },
+              },
+            });
             continue;
           }
 

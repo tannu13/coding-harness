@@ -1,25 +1,25 @@
 import type { Content } from "@google/genai";
 
-interface PreLlmCallContext {
+export interface PreLlmCallContext {
   history: Content[];
 }
-interface PreToolCallContext {
+export interface PreToolCallContext {
   history: Content[];
   toolName: string;
-  toolArgs: Record<string, unknown>;
+  args: Record<string, unknown>;
   approve(): void;
   reject(reason: string): void;
 }
-interface PostToolCallContext {
+export interface PostToolCallContext {
   history: Content[];
   toolName: string;
   result: Promise<Record<string, unknown>>;
 }
-interface NoToolCallContext {
+export interface NoToolCallContext {
   history: Content[];
 }
 
-interface HookContextMap {
+export interface HookContextMap {
   "pre-llm-call": PreLlmCallContext;
   "pre-tool-call": PreToolCallContext;
   "post-tool-call": PostToolCallContext;
@@ -28,7 +28,7 @@ interface HookContextMap {
 
 type HookType = keyof HookContextMap;
 
-interface Hook<T extends HookType> {
+export interface Hook<T extends HookType> {
   name: string;
   process(context: HookContextMap[T]): Promise<void> | void;
 }
