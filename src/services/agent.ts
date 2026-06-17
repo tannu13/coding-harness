@@ -35,11 +35,11 @@ export class Agent {
     });
   }
 
-  async runStep(registry: ToolRegistry) {
+  async runStep(registry: ToolRegistry, contents: Content[] = this.history) {
     const declarations = registry.getGiminiDeclarations();
     return await this.ai.models.generateContent({
       model: this.model,
-      contents: this.history,
+      contents,
       config: {
         toolConfig: {
           functionCallingConfig: {

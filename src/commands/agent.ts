@@ -1,10 +1,12 @@
-import fs from "node:fs";
 import { Command } from "commander";
 import { readFileTool, ToolRegistry, writeFileTool } from "../services/tools";
 import { Agent } from "../services/agent";
 import { Harness } from "../services/harness";
+import {
+  ContextManager,
+  type ContextStrategy,
+} from "../services/context-manager";
 import { MODEL_FILE_PATH, ModelsContentSchema } from "./models/set";
-import env from "../env";
 import {
   PROVIDER_FILE_PATH,
   ProviderContentSchema,
@@ -24,9 +26,51 @@ class ValidateToolCallHook implements Hook<"pre-tool-call"> {
   }
 }
 
+const contextStrategies = [
+  "none",
+  "truncate-oldest",
+  "summarize-old-history",
+] as const satisfies readonly ContextStrategy[];
+
+export function parseContextStrategy(value: string): ContextStrategy {
+  if (contextStrategies.includes(value as ContextStrategy)) {
+    return value as ContextStrategy;
+  }
+
+  throw new Error(
+    `Invalid context strategy "${value}". Expected one of: ${contextStrategies.join(", ")}`,
+  );
+}
+
+export function parsePositiveInteger(value: string) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Expected a positive integer, got "${value}".`);
+  }
+
+  return parsed;
+}
+
 export const agentCommand = new Command("agent")
   .description("Runs the agent")
   .option("-p, --prompt <prompt>", "prompt", "")
+  .option(
+    "--context-strategy <strategy>",
+    "context strategy: none, truncate-oldest, summarize-old-history",
+    parseContextStrategy,
+    "truncate-oldest",
+  )
+  .option(
+    "--context-max-turns <number>",
+    "maximum recent messages to keep with the initial prompt",
+    parsePositiveInteger,
+    8,
+  )
+  .option(
+    "--context-token-budget <number>",
+    "approximate token budget for context metadata",
+    parsePositiveInteger,
+  )
   .action(async (options) => {
     console.log("User prompt is ..." + options.prompt);
 
@@ -107,11 +151,16 @@ export const agentCommand = new Command("agent")
     console.log(apiKey, model);
 
     const agent = new Agent(apiKey, options.prompt, model);
+    const contextManager = new ContextManager({
+      strategy: options.contextStrategy,
+      maxRecentMessages: options.contextMaxTurns,
+      approxTokenBudget: options.contextTokenBudget,
+    });
 
     const hooks = new HooksRegistry();
     const validateHook = new ValidateToolCallHook();
     hooks.register("pre-tool-call", validateHook);
 
-    const harness = new Harness(agent, tools, hooks);
+    const harness = new Harness(agent, tools, hooks, 5, contextManager);
     await harness.executeTask();
   });

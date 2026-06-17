@@ -1,25 +1,34 @@
 import type { Agent } from "./agent";
+import { ContextManager } from "./context-manager";
 import type { HooksRegistry, PreToolCallContext } from "./hooks";
 import type { ToolRegistry } from "./tools";
 
+type AgentRunner = Pick<
+  Agent,
+  "getHistory" | "addUserRole" | "addModelRole" | "runStep"
+>;
+
 export class Harness {
-  private agent: Agent;
+  private agent: AgentRunner;
   private toolRegistry: ToolRegistry;
   private maxIterations;
   private hooksRegistry: HooksRegistry;
+  private contextManager: ContextManager;
 
   status = "pending";
 
   constructor(
-    agent: Agent,
+    agent: AgentRunner,
     toolRegistry: ToolRegistry,
     hooksRegistry: HooksRegistry,
     maxIterations = 5,
+    contextManager = new ContextManager(),
   ) {
     this.agent = agent;
     this.toolRegistry = toolRegistry;
     this.maxIterations = maxIterations;
     this.hooksRegistry = hooksRegistry;
+    this.contextManager = contextManager;
   }
 
   async executeTask() {
@@ -28,8 +37,19 @@ export class Harness {
     while (processing && iteration < this.maxIterations) {
       iteration++;
 
-      // call pre hooks
-      const response = await this.agent.runStep(this.toolRegistry);
+      const rawHistory = this.agent.getHistory();
+      const context = this.contextManager.buildContext(rawHistory);
+
+      await this.hooksRegistry.executeHooks("pre-llm-call", {
+        rawHistory,
+        managedHistory: context.contents,
+        context,
+      });
+
+      const response = await this.agent.runStep(
+        this.toolRegistry,
+        context.contents,
+      );
 
       if (response.functionCalls) {
         this.agent.addModelRole(

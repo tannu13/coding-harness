@@ -1,7 +1,10 @@
 import type { Content } from "@google/genai";
+import type { ContextResult } from "./context-manager";
 
 export interface PreLlmCallContext {
-  history: Content[];
+  rawHistory: Content[];
+  managedHistory: Content[];
+  context: ContextResult;
 }
 export interface PreToolCallContext {
   history: Content[];
