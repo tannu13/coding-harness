@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import z from "zod";
+import env from "../../env";
 
 export const ValidProviderNames = z.enum(["google", "openai", "anthropic"]);
 export type TValidProviderNames = z.infer<typeof ValidProviderNames>;
@@ -11,8 +12,6 @@ export const ProviderContentSchema = z.object({
   openai: ApiKeySchema.optional(),
   anthropic: ApiKeySchema.optional(),
 });
-export const PROVIDER_FILE_PATH =
-  "/home/tannu/.local/share/s30-tui-starter/providers.json";
 export const loginCommand = new Command("login")
   .description("Lets user login into the provider (use it as default)")
   .option(
@@ -40,7 +39,7 @@ export const loginCommand = new Command("login")
       return;
     }
 
-    const providerFile = Bun.file(PROVIDER_FILE_PATH);
+    const providerFile = Bun.file(env.PROVIDER_FILE_PATH);
     if (!(await providerFile.exists())) {
       await providerFile.write("{}");
     }
@@ -48,7 +47,7 @@ export const loginCommand = new Command("login")
     const parsed = ProviderContentSchema.safeParse(data);
 
     if (!parsed.success) {
-      console.error(`Invalid provider file @ ${PROVIDER_FILE_PATH}`);
+      console.error(`Invalid provider file @ ${env.PROVIDER_FILE_PATH}`);
       console.error(parsed.error);
       process.exit(1);
     }

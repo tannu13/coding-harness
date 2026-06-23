@@ -1,10 +1,11 @@
 import { Command } from "commander";
-import { MODEL_FILE_PATH, ModelsContentSchema } from "./set";
+import { ModelsContentSchema } from "./set";
+import env from "../../env";
 
 export const listCommand = new Command("list")
   .description("List all the providers supported")
   .action(async () => {
-    const modelFile = Bun.file(MODEL_FILE_PATH);
+    const modelFile = Bun.file(env.MODEL_FILE_PATH);
     if (!(await modelFile.exists())) {
       await modelFile.write("{}");
     }
@@ -12,7 +13,7 @@ export const listCommand = new Command("list")
     const data = await modelFile.json();
     const parsed = ModelsContentSchema.safeParse(data);
     if (!parsed.success) {
-      console.error(`Invalid provider file @ ${MODEL_FILE_PATH}`);
+      console.error(`Invalid provider file @ ${env.MODEL_FILE_PATH}`);
       console.error(parsed.error);
       process.exit(1);
     }

@@ -1,9 +1,6 @@
 import { Command } from "commander";
-import {
-  PROVIDER_FILE_PATH,
-  ProviderContentSchema,
-  ValidProviderNames,
-} from "./login";
+import { ProviderContentSchema, ValidProviderNames } from "./login";
+import env from "../../env";
 
 export const logoutCommand = new Command("logout")
   .description("Lets user logout from the provider")
@@ -23,7 +20,7 @@ export const logoutCommand = new Command("logout")
       process.exit(1);
     }
 
-    const providerFile = Bun.file(PROVIDER_FILE_PATH);
+    const providerFile = Bun.file(env.PROVIDER_FILE_PATH);
     if (!(await providerFile.exists())) {
       await providerFile.write("{}");
     }
@@ -32,7 +29,7 @@ export const logoutCommand = new Command("logout")
     const parsed = ProviderContentSchema.safeParse(data);
 
     if (!parsed.success) {
-      console.error(`Invalid provider file @ ${PROVIDER_FILE_PATH}`);
+      console.error(`Invalid provider file @ ${env.PROVIDER_FILE_PATH}`);
       console.error(parsed.error);
       process.exit(1);
     }

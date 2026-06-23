@@ -1,7 +1,6 @@
 import z from "zod";
 
 const EnvSchema = z.object({
-  GEMINI_API_KEY: z.string().min(1),
   MODEL_FILE_PATH: z.string().min(1),
   PROVIDER_FILE_PATH: z.string().min(1),
 });

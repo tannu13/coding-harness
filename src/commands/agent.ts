@@ -6,9 +6,8 @@ import {
   ContextManager,
   type ContextStrategy,
 } from "../services/context-manager";
-import { MODEL_FILE_PATH, ModelsContentSchema } from "./models/set";
+import { ModelsContentSchema } from "./models/set";
 import {
-  PROVIDER_FILE_PATH,
   ProviderContentSchema,
   type TValidProviderNames,
 } from "./providers/login";
@@ -17,6 +16,7 @@ import {
   type Hook,
   type HookContextMap,
 } from "../services/hooks";
+import env from "../env";
 
 class ValidateToolCallHook implements Hook<"pre-tool-call"> {
   name: string = "validate-tool-call";
@@ -81,7 +81,7 @@ export const agentCommand = new Command("agent")
       process.exit(1);
     }
 
-    const modelFile = Bun.file(MODEL_FILE_PATH);
+    const modelFile = Bun.file(env.MODEL_FILE_PATH);
     if (!(await modelFile.exists())) {
       await modelFile.write("{}");
     }
@@ -89,7 +89,7 @@ export const agentCommand = new Command("agent")
     const data = await modelFile.json();
     const parsed = ModelsContentSchema.safeParse(data);
     if (!parsed.success) {
-      console.error(`Invalid provider file @ ${MODEL_FILE_PATH}`);
+      console.error(`Invalid provider file @ ${env.MODEL_FILE_PATH}`);
       console.error(parsed.error);
       process.exit(1);
     }
@@ -118,7 +118,7 @@ export const agentCommand = new Command("agent")
       process.exit(1);
     }
 
-    const providerFile = Bun.file(PROVIDER_FILE_PATH);
+    const providerFile = Bun.file(env.PROVIDER_FILE_PATH);
     if (!(await providerFile.exists())) {
       console.error(
         "There aren't any providers setup. Use `providers login` command",
@@ -129,7 +129,7 @@ export const agentCommand = new Command("agent")
     const parsedProviders = ProviderContentSchema.safeParse(providerData);
 
     if (!parsedProviders.success) {
-      console.error(`Invalid provider file @ ${PROVIDER_FILE_PATH}`);
+      console.error(`Invalid provider file @ ${env.PROVIDER_FILE_PATH}`);
       console.error(parsedProviders.error);
       process.exit(1);
     }

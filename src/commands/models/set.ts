@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import z from "zod";
+import env from "../../env";
 
 export const ModelsContentSchema = z.object({
   default: z.string().optional(),
@@ -7,9 +8,6 @@ export const ModelsContentSchema = z.object({
   openai: z.array(z.string()).optional(),
   anthropic: z.array(z.string()).optional(),
 });
-
-export const MODEL_FILE_PATH =
-  "/home/tannu/.local/share/s30-tui-starter/models.json";
 
 export const setModelsCommand = new Command("set")
   .description("Lets user set the default provider")
@@ -26,7 +24,7 @@ export const setModelsCommand = new Command("set")
       );
       process.exit(1);
     }
-    const modelFile = Bun.file(MODEL_FILE_PATH);
+    const modelFile = Bun.file(env.MODEL_FILE_PATH);
     if (!(await modelFile.exists())) {
       await modelFile.write("{}");
     }
@@ -35,7 +33,7 @@ export const setModelsCommand = new Command("set")
     const parsed = ModelsContentSchema.safeParse(data);
 
     if (!parsed.success) {
-      console.error(`Invalid provider file @ ${MODEL_FILE_PATH}`);
+      console.error(`Invalid provider file @ ${env.MODEL_FILE_PATH}`);
       console.error(parsed.error);
       process.exit(1);
     }
